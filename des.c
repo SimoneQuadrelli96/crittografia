@@ -59,9 +59,8 @@ unsigned int bin_string_to_int (char* s); //in: string binary digit out: unsigne
 L0R0 des (L0R0 plaintext, Key key, uint64_t n_round);
 uint8_t* diff_crypto (L0R0 p1, L0R0 p2, L0R0 c1, L0R0 c2);
 uint8_t** gen_key (L0R0* lista_plain);
-uint8_t get_key(uint8_t** list_key);
+void get_key(uint8_t** list_key);
 void print_plains(L0R0* lista_plain);
-void get_sender_key(uint8_t k4); // da k4 la chiave dell'ultimo round estrae la chiave su 9 bit
 
 uint8_t expansion (uint8_t r0)
 {
@@ -194,7 +193,7 @@ uint8_t** gen_key (L0R0* lista){
   return list_key;
 }
 
-uint8_t get_key(uint8_t** list_key){
+void get_key(uint8_t** list_key){
   // 256 = 2^8 = Tutte le possibili chiavi
   int* all_key = malloc(sizeof(uint8_t)* 256);
   int n_keys = 0;
@@ -213,31 +212,28 @@ uint8_t get_key(uint8_t** list_key){
   printf("%d total 8-bit keys...\n", n_keys);
 
   uint8_t k4;
-  char* bit_key = malloc(sizeof(char)*8);
   for (int i = 0; i < 256; i++) {
     if(all_key[i] == length_index){
-      printf("K4 is: 0x%x\n", i);
+      //printf("K4 is: 0x%x\n", i);
         k4 = i;
       }
   }
 
 
-  //ottieni i bit della chiave
+  //dalla chive dell'ultimo round estraggo la sua rappresentazione in binario
+  char* bit_key = malloc(sizeof(char)*8);
   for(int i = 0; i < 8; i++){
     if(k4%2 == 0)
       bit_key[i] = '0';
     else
       bit_key[i] = '1';
-    printf("data: %c index %d k4: %d\n",bit_key[i],7-i,k4);
     k4 = k4/2;
   }
 
-
-  char* solution = malloc(sizeof(char)*9);
-  char bit6=bit_key[0];
-  char bit7= bit_key[1];
-  solution[0] = bit6;
-  solution[1] = bit7;
+  //ricostruisco una delle due possibili chiavi di input dopo ever ottenuto k4
+  char* solution = malloc(sizeof(char)*10);
+  solution[0] = bit_key[0];
+  solution[1] = bit_key[1];
   solution[2] = '1';
   solution[3] = bit_key[7];
   solution[4] = bit_key[6];
@@ -245,23 +241,17 @@ uint8_t get_key(uint8_t** list_key){
   solution[6] = bit_key[4];
   solution[7] = bit_key[3];
   solution[8] = bit_key[2];
-
-  uint try_key =bin_string_to_int(solution);
-  //L0R0 c1 = des(list_plaintext[0],try_key, 3);
-
-  if(try_key == key.key)
-    printf("\n\nKey: 0x%x", try_key);
-  else{
+  free(bit_key);
+  
+  //indovina il bit che non si può ricavare
+  //alternativa all'if sfruttando la conoscenza della chiave originaria
+  //if(try_key.key == key.key)
+  Key try_key;
+  try_key.key = bin_string_to_int(solution);
+    solution[9] = '\0';
+  if(des(list_plaintext[0],try_key,3).l0 != des(list_plaintext[0],key,3).l0)
     solution[2] = '0';
-    printf("\n\nKey: 0x%x\n", bin_string_to_int(solution));
-    }
-  return k4;
-}
-
-void get_sender_key(uint8_t k4){
-  uint8_t first_bits = (k4 & 0b0000011) << 6;
-  int final_key = (first_bits | 0b001) | (k4 >> 3);
-
+    printf("Key: %s\n", solution);
 }
 
 void print_gen_key (uint8_t** gen_key){
@@ -304,8 +294,6 @@ int main(int argc, char* argv[])
   printf("\n\t\t======= DIFFERENTIAL CRYPTANALYSIS DES 3 round =======\n");
   print_plains(list_plaintext);
   uint8_t** chiavi = gen_key(list_plaintext);
-
-
   get_key(chiavi);
 
   return 0;
